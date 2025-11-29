@@ -1,0 +1,120 @@
+{
+  "task_sequence": [
+    "0",
+    "1",
+    "3"
+  ],
+  "domain_sequence": [
+    "airline",
+    "airline",
+    "airline"
+  ],
+  "task_results": [
+    {
+      "task_id": "0",
+      "task_idx": 0,
+      "domain": "airline",
+      "avg_train_reward": 1.0,
+      "avg_eval_reward": 1.0,
+      "train_success_rate": 1.0,
+      "eval_success_rate": 1.0,
+      "metadata": {
+        "eval_on_previous_tasks": {}
+      }
+    },
+    {
+      "task_id": "1",
+      "task_idx": 1,
+      "domain": "airline",
+      "avg_train_reward": 1.0,
+      "avg_eval_reward": 0.0,
+      "train_success_rate": 1.0,
+      "eval_success_rate": 0.0,
+      "metadata": {
+        "eval_on_previous_tasks": {
+          "0": 1.0
+        }
+      }
+    },
+    {
+      "task_id": "3",
+      "task_idx": 2,
+      "domain": "airline",
+      "avg_train_reward": 1.0,
+      "avg_eval_reward": 1.0,
+      "train_success_rate": 1.0,
+      "eval_success_rate": 1.0,
+      "metadata": {
+        "eval_on_previous_tasks": {
+          "0": 1.0,
+          "1": 0.0
+        }
+      }
+    }
+  ],
+  "cl_metrics": {
+    "average_accuracy": 0.6666666666666666,
+    "final_performance": 0.6666666666666666,
+    "forgetting": 0.0,
+    "backward_transfer": -0.0,
+    "learning_curve_area": 0.7222222222222222,
+    "airline_avg_accuracy": 0.6666666666666666,
+    "airline_vs_baseline": -0.16666666666666674
+  },
+  "baseline_results": {
+    "airline": {
+      "avg_success_rate": 0.8333333333333334,
+      "avg_reward": 0.8333333333333334,
+      "num_tasks": 3,
+      "per_task_results": [
+        {
+          "task_id": "0",
+          "success_rate": 1.0,
+          "reward": 1.0
+        },
+        {
+          "task_id": "1",
+          "success_rate": 0.75,
+          "reward": 0.75
+        },
+        {
+          "task_id": "3",
+          "success_rate": 0.75,
+          "reward": 0.75
+        }
+      ]
+    }
+  },
+  "method_name": "naive",
+  "method_config": {},
+  "run_config": {
+    "domain_names": [
+      "airline"
+    ],
+    "task_split_name": "train",
+    "num_tasks_per_domain": 3,
+    "task_order": "sequential",
+    "domain_order": "sequential",
+    "custom_domain_order": null,
+    "num_train_trials": 1,
+    "num_eval_trials": 1,
+    "eval_frequency": 1,
+    "eval_all_previous": true,
+    "run_baseline": true,
+    "baseline_num_trials": 4,
+    "agent_type": "llm_agent",
+    "agent_llm": "gpt-4o-mini",
+    "agent_llm_temperature": 0.0,
+    "user_llm": "gpt-4o-mini",
+    "user_llm_temperature": 0.0,
+    "max_steps": 200,
+    "max_errors": 10,
+    "max_concurrency": 3,
+    "seed": 300,
+    "cl_method_name": "naive",
+    "cl_method_config": {},
+    "save_dir": "./airline_test",
+    "checkpoint_frequency": 1
+  },
+  "metadata": {}
+}

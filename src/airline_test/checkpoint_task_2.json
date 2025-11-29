@@ -1,0 +1,88 @@
+{
+  "task_idx": 2,
+  "task_sequence": [
+    "0",
+    "1",
+    "3"
+  ],
+  "domain_sequence": [
+    "airline",
+    "airline",
+    "airline"
+  ],
+  "task_results": [
+    {
+      "task_id": "0",
+      "task_idx": 0,
+      "domain": "airline",
+      "avg_train_reward": 1.0,
+      "avg_eval_reward": 1.0,
+      "train_success_rate": 1.0,
+      "eval_success_rate": 1.0
+    },
+    {
+      "task_id": "1",
+      "task_idx": 1,
+      "domain": "airline",
+      "avg_train_reward": 1.0,
+      "avg_eval_reward": 0.0,
+      "train_success_rate": 1.0,
+      "eval_success_rate": 0.0
+    },
+    {
+      "task_id": "3",
+      "task_idx": 2,
+      "domain": "airline",
+      "avg_train_reward": 1.0,
+      "avg_eval_reward": 1.0,
+      "train_success_rate": 1.0,
+      "eval_success_rate": 1.0
+    }
+  ],
+  "eval_matrix": [
+    [
+      1.0,
+      1.0,
+      1.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "method_info": {
+    "name": "naive",
+    "config": {},
+    "buffer_size": 3
+  },
+  "baseline_results": {
+    "airline": {
+      "avg_success_rate": 0.8333333333333334,
+      "avg_reward": 0.8333333333333334,
+      "num_tasks": 3,
+      "per_task_results": [
+        {
+          "task_id": "0",
+          "success_rate": 1.0,
+          "reward": 1.0
+        },
+        {
+          "task_id": "1",
+          "success_rate": 0.75,
+          "reward": 0.75
+        },
+        {
+          "task_id": "3",
+          "success_rate": 0.75,
+          "reward": 0.75
+        }
+      ]
+    }
+  }
+}
