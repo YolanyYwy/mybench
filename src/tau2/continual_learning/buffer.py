@@ -3,7 +3,8 @@ Experience buffer for storing and sampling historical experiences.
 """
 
 import random
-from typing import Optional
+from typing import Optional, Dict, Callable
+import numpy as np
 
 from loguru import logger
 
@@ -164,3 +165,267 @@ class ExperienceBuffer:
             f"max_size={self.max_size}, "
             f"tasks={len(self.get_task_ids())})"
         )
+
+    # ========== Enhanced Sampling Methods for Advanced CL ==========
+
+    def sample_with_priority(
+        self,
+        n: int,
+        weights: Optional[Dict[int, float]] = None,
+        weight_fn: Optional[Callable[[Experience], float]] = None,
+    ) -> list[Experience]:
+        """
+        Sample experiences with priority weighting.
+
+        Args:
+            n: Number of experiences to sample
+            weights: Dict mapping experience index to weight (optional)
+            weight_fn: Function to compute weight from experience (optional)
+
+        Returns:
+            List of sampled experiences with importance weighting
+        """
+        if not self.experiences:
+            return []
+
+        n = min(n, len(self.experiences))
+
+        # Compute weights
+        if weight_fn is not None:
+            # Use weight function
+            priority_weights = [weight_fn(exp) for exp in self.experiences]
+        elif weights is not None:
+            # Use provided weights dict
+            priority_weights = [weights.get(i, 1.0) for i in range(len(self.experiences))]
+        else:
+            # Default: uniform weights
+            priority_weights = [1.0] * len(self.experiences)
+
+        # Normalize weights
+        total_weight = sum(priority_weights)
+        if total_weight == 0:
+            probabilities = [1.0 / len(self.experiences)] * len(self.experiences)
+        else:
+            probabilities = [w / total_weight for w in priority_weights]
+
+        # Sample with replacement using probabilities
+        indices = self._rng.choices(
+            range(len(self.experiences)),
+            weights=probabilities,
+            k=n
+        )
+
+        return [self.experiences[i] for i in indices]
+
+    def sample_diverse(
+        self,
+        n: int,
+        diversity_key: str = "task_idx",
+    ) -> list[Experience]:
+        """
+        Sample experiences to maximize diversity.
+
+        Args:
+            n: Number of experiences to sample
+            diversity_key: Attribute to use for diversity ('task_idx', 'domain', etc.)
+
+        Returns:
+            List of diverse experiences
+        """
+        if not self.experiences:
+            return []
+
+        n = min(n, len(self.experiences))
+
+        # Group by diversity key
+        groups = {}
+        for exp in self.experiences:
+            key_value = getattr(exp, diversity_key, None)
+            if key_value not in groups:
+                groups[key_value] = []
+            groups[key_value].append(exp)
+
+        # Sample evenly from each group
+        samples = []
+        group_keys = list(groups.keys())
+        samples_per_group = max(1, n // len(groups))
+        remaining = n
+
+        for key in group_keys:
+            group_samples = min(samples_per_group, len(groups[key]), remaining)
+            samples.extend(self._rng.sample(groups[key], group_samples))
+            remaining -= group_samples
+            if remaining <= 0:
+                break
+
+        # Fill remaining with random samples if needed
+        if len(samples) < n:
+            available = [exp for exp in self.experiences if exp not in samples]
+            if available:
+                additional = self._rng.sample(available, min(n - len(samples), len(available)))
+                samples.extend(additional)
+
+        return samples[:n]
+
+    def sample_recent(
+        self,
+        n: int,
+        recent_ratio: float = 0.7,
+    ) -> list[Experience]:
+        """
+        Sample experiences with bias towards recent ones.
+
+        Args:
+            n: Number of experiences to sample
+            recent_ratio: Ratio of samples from recent half (default 0.7)
+
+        Returns:
+            List of experiences biased towards recent ones
+        """
+        if not self.experiences:
+            return []
+
+        n = min(n, len(self.experiences))
+
+        # Split into recent and older
+        split_idx = len(self.experiences) // 2
+        older_exps = self.experiences[:split_idx]
+        recent_exps = self.experiences[split_idx:]
+
+        # Calculate samples from each group
+        n_recent = int(n * recent_ratio)
+        n_older = n - n_recent
+
+        # Sample
+        samples = []
+        if recent_exps:
+            samples.extend(self._rng.sample(recent_exps, min(n_recent, len(recent_exps))))
+        if older_exps:
+            samples.extend(self._rng.sample(older_exps, min(n_older, len(older_exps))))
+
+        # Fill if needed
+        if len(samples) < n:
+            available = [exp for exp in self.experiences if exp not in samples]
+            if available:
+                samples.extend(self._rng.sample(available, min(n - len(samples), len(available))))
+
+        return samples[:n]
+
+    def sample_by_similarity(
+        self,
+        query_embedding: np.ndarray,
+        n: int,
+        embedding_fn: Optional[Callable[[Experience], np.ndarray]] = None,
+        embeddings_cache: Optional[Dict[int, np.ndarray]] = None,
+    ) -> list[Experience]:
+        """
+        Sample experiences similar to a query embedding.
+
+        Args:
+            query_embedding: Query embedding vector
+            n: Number of experiences to sample
+            embedding_fn: Function to get embedding from experience
+            embeddings_cache: Pre-computed embeddings dict
+
+        Returns:
+            List of most similar experiences
+        """
+        if not self.experiences:
+            return []
+
+        n = min(n, len(self.experiences))
+
+        # Get embeddings for all experiences
+        if embeddings_cache is not None:
+            embeddings = [embeddings_cache.get(i) for i in range(len(self.experiences))]
+            # Filter out None values
+            valid_indices = [i for i, emb in enumerate(embeddings) if emb is not None]
+            embeddings = [embeddings[i] for i in valid_indices]
+            experiences = [self.experiences[i] for i in valid_indices]
+        elif embedding_fn is not None:
+            embeddings = [embedding_fn(exp) for exp in self.experiences]
+            valid_indices = [i for i, emb in enumerate(embeddings) if emb is not None]
+            embeddings = [embeddings[i] for i in valid_indices]
+            experiences = [self.experiences[i] for i in valid_indices]
+        else:
+            raise ValueError("Either embedding_fn or embeddings_cache must be provided")
+
+        if not embeddings:
+            return []
+
+        # Compute similarities
+        embeddings_array = np.array(embeddings)
+        query_norm = np.linalg.norm(query_embedding)
+        embeddings_norms = np.linalg.norm(embeddings_array, axis=1)
+
+        # Cosine similarity
+        similarities = np.dot(embeddings_array, query_embedding) / (
+            embeddings_norms * query_norm + 1e-10
+        )
+
+        # Get top-k indices
+        top_k_indices = np.argsort(similarities)[-n:][::-1]
+
+        return [experiences[i] for i in top_k_indices]
+
+    def get_statistics(self) -> Dict[str, any]:
+        """
+        Get buffer statistics for analysis.
+
+        Returns:
+            Dictionary with buffer statistics
+        """
+        if not self.experiences:
+            return {
+                "total_experiences": 0,
+                "success_rate": 0.0,
+                "tasks_represented": 0,
+                "domains": [],
+                "task_distribution": {},
+                "domain_distribution": {},
+            }
+
+        successes = [exp.success for exp in self.experiences]
+        tasks = [exp.task_id for exp in self.experiences]
+        domains = [exp.domain for exp in self.experiences if hasattr(exp, 'domain') and exp.domain]
+
+        # Task distribution
+        task_dist = {}
+        for task in tasks:
+            task_dist[task] = task_dist.get(task, 0) + 1
+
+        # Domain distribution
+        domain_dist = {}
+        for domain in domains:
+            domain_dist[domain] = domain_dist.get(domain, 0) + 1
+
+        return {
+            "total_experiences": len(self.experiences),
+            "success_rate": np.mean(successes) if successes else 0.0,
+            "tasks_represented": len(set(tasks)),
+            "domains": list(set(domains)),
+            "task_distribution": task_dist,
+            "domain_distribution": domain_dist,
+            "avg_reward": np.mean([exp.reward for exp in self.experiences if exp.reward is not None]),
+        }
+
+    def filter_by_metadata(
+        self,
+        key: str,
+        value: any,
+    ) -> list[Experience]:
+        """
+        Filter experiences by metadata field.
+
+        Args:
+            key: Metadata key to filter by
+            value: Value to match
+
+        Returns:
+            List of experiences matching the filter
+        """
+        return [
+            exp for exp in self.experiences
+            if exp.metadata and exp.metadata.get(key) == value
+        ]
+
